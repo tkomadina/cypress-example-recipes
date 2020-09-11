@@ -14,7 +14,7 @@ defaults: &defaults
   parallelism: 1
   working_directory: ~/app
   docker:
-    - image: cypress/base:10
+    - image: cypress/browsers:node14.7.0-chrome84
   environment:
     TERM: xterm
   steps:
@@ -44,7 +44,7 @@ jobs:
   build:
     working_directory: ~/app
     docker:
-      - image: cypress/base:10
+      - image: cypress/browsers:node14.7.0-chrome84
     environment:
       TERM: xterm
     steps:
@@ -62,6 +62,7 @@ jobs:
       # run verify and then save cache.
       # this ensures that the Cypress verified status is cached too
       - run: npm run cypress:verify
+      - run: npm run cypress:info
       - run: npm run stop-only
       - save_cache:
           key: cache-dirs-{{ .Branch }}-{{ checksum "package.json" }}-{{ checksum "circle.yml" }}
@@ -81,7 +82,7 @@ jobs:
   lint:
     working_directory: ~/app
     docker:
-      - image: cypress/base:10
+      - image: cypress/browsers:node14.7.0-chrome84
     steps:
       - attach_workspace:
           at: ~/
@@ -91,7 +92,7 @@ jobs:
   # dummy job running after all end-to-end tests
   after-tests:
     docker:
-      - image: cypress/base:10
+      - image: cypress/browsers:node14.7.0-chrome84
     steps:
       - run: echo "all good"
 
@@ -128,6 +129,12 @@ jobs:
       - attach_workspace:
           at: ~/
       - run: npm run test:ci:chrome -- --chunk $CIRCLE_NODE_INDEX --total-chunks $CIRCLE_NODE_TOTAL
+      # store test artifacts from any failing projects
+      # if the project is not running on this machine, no worries
+      - store_artifacts:
+          path: ~/app/examples/blogs__iframes/cypress/videos
+      - store_artifacts:
+          path: ~/app/examples/blogs__iframes/cypress/screenshots
 
   # run recipes that have "test:ci:chrome:headless" script
   test-examples-chrome-headless:
@@ -231,6 +238,8 @@ jobs:
     <<: *defaults
   stubbing-spying__window-fetch:
     <<: *defaults
+  stubbing-spying__route2:
+    <<: *defaults
   stubbing-spying__window-print:
     <<: *defaults
   stubbing-spying__google-analytics:
@@ -244,6 +253,8 @@ jobs:
   stubbing__resources:
     <<: *defaults
   testing-dom__drag-drop:
+    <<: *defaults
+  testing-dom__download:
     <<: *defaults
   testing-dom__form-interactions:
     <<: *defaults
@@ -354,6 +365,9 @@ all_jobs: &all_jobs
   - blogs__iframes:
       requires:
         - build
+      # investigate flake
+      # https://github.com/cypress-io/cypress-example-recipes/issues/558
+      repeat: 10
   - blogs__application-actions:
       requires:
         - build
@@ -429,6 +443,9 @@ all_jobs: &all_jobs
   - stubbing-spying__window-fetch:
       requires:
         - build
+  - stubbing-spying__route2:
+      requires:
+        - build
   - stubbing-spying__window-print:
       requires:
         - build
@@ -451,6 +468,9 @@ all_jobs: &all_jobs
       requires:
         - build
   - testing-dom__drag-drop:
+      requires:
+        - build
+  - testing-dom__download:
       requires:
         - build
   - testing-dom__form-interactions:
@@ -578,6 +598,7 @@ all_jobs: &all_jobs
         - server-communication__stream-tests
         - stubbing-spying__functions
         - stubbing-spying__window-fetch
+        - stubbing-spying__route2
         - stubbing-spying__window-print
         - stubbing-spying__google-analytics
         - stubbing-spying__navigator
@@ -585,6 +606,7 @@ all_jobs: &all_jobs
         - stubbing-spying__console
         - stubbing__resources
         - testing-dom__drag-drop
+        - testing-dom__download
         - testing-dom__form-interactions
         - testing-dom__hover-hidden-elements
         - testing-dom__lit-element
